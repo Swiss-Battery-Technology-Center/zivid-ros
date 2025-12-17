@@ -2,7 +2,11 @@
 
 This is the official ROS driver for [Zivid 3D cameras](https://www.zivid.com/).
 
-This driver provides support for ROS2. If you are looking for ROS1 support, please see the [`ros1-master` branch](https://github.com/zivid/zivid-ros/tree/ros1-master).
+This driver provides support for ROS2.
+
+If you are looking for the Zivid ROS1 driver, please use the [`ros1-master` branch](https://github.com/zivid/zivid-ros/tree/ros1-master) if
+you are using Zivid SDK 2.13 or older, or use the [`ros1-sdk-2.14.0` branch](https://github.com/zivid/zivid-ros/tree/ros1-sdk-2.14.0) if you
+are using Zivid SDK 2.14 or newer.
 
 [![Build Status][ci-badge]][ci-url]
 ![Zivid Image][header-image]
@@ -17,6 +21,9 @@ This driver provides support for ROS2. If you are looking for ROS1 support, plea
 [**Services**](#services) |
 [**Topics**](#topics) |
 [**Samples**](#samples) |
+[**Launch Files**](#launch-files) |
+[**RViz Plugin**](#rviz-plugin) |
+[**URDF**](#urdf) |
 [**FAQ**](#frequently-asked-questions)
 
 ---
@@ -26,12 +33,17 @@ This driver provides support for ROS2. If you are looking for ROS1 support, plea
 ### Support
 
 This driver supports Ubuntu 20.04 / 22.04 / 24.04 with ROS2. Follow the official [ROS installation instructions](https://docs.ros.org/) for
-your OS. If you are looking for the ROS1 driver, please see
-the [`ros1-master` branch](https://github.com/zivid/zivid-ros/tree/ros1-master).
+your OS.
+
+> [!TIP]
+> If you are using an OS that is not supported by ROS2, you can use the *dev container* provided in this repository.
+
+If you are looking for the Zivid ROS1 driver, please use the [`ros1-master` branch](https://github.com/zivid/zivid-ros/tree/ros1-master) for
+Zivid SDK 2.13 or older, or use the [`ros1-sdk-2.14.0` branch](https://github.com/zivid/zivid-ros/tree/ros1-sdk-2.14.0) for Zivid SDK 2.14 or newer.
 
 ### Zivid SDK
 
-To use the ROS driver you need to download and install the "Zivid Core" package. Zivid SDK version 2.9.0 to 2.14.0 is
+To use the ROS driver you need to download and install the "Zivid Core" package. Zivid SDK versions 2.15.0 to 2.17.0 are
 supported. See [releases](https://github.com/zivid/zivid-ros/releases) for older ROS driver releases
 that supports older SDK versions.
 
@@ -51,6 +63,9 @@ sudo apt-get install -y g++
 ```
 
 ### Downloading and building Zivid ROS driver
+
+> [!NOTE]
+> If you will be using the *dev container*, skip to the [Using Dev Container](#using-dev-container) section.
 
 First, source the `setup.bash` script for your ROS distribution in your terminal:
 
@@ -86,6 +101,17 @@ Finally, build the driver:
 
 ```bash
 cd ~/ros2_ws
+colcon build --symlink-install
+```
+
+#### Using Dev Container
+
+If you are using a dev container, you can skip the above steps and instead open the dev container in your IDE.
+
+To build the driver in the dev container, run the following command in the terminal inside the dev container:
+
+```bash
+source /opt/ros/$ROS_DISTRO/setup.bash
 colcon build --symlink-install
 ```
 
@@ -135,11 +161,10 @@ For example, to run the zivid_camera driver with a specific `serial_number` spec
 ros2 run zivid_camera zivid_camera --ros-args -p serial_number:=ABCD1234
 ```
 
-Or you can use a [launch file](./zivid_samples/launch/zivid_camera_with_serial_number.launch)
-and invoke it as:
+Or you can use a [launch file](#launch-files) and invoke it as:
 
 ```bash
-ros2 launch zivid_samples zivid_camera_with_serial_number.launch serial_number:=ABCD1234
+ros2 launch zivid_samples zivid_camera.launch serial_number:=ABCD1234
 ```
 
 `file_camera_path` (string, default: "")
@@ -160,6 +185,37 @@ ros2 launch zivid_samples zivid_camera_with_serial_number.launch serial_number:=
 > then camera must be manually updated, for example using Zivid Studio or `ZividFirmwareUpdater`.
 > Read more about [firmware update in our knowledgebase][firmware-update-kb-url].
 > This parameter is optional, and by default it is true.
+
+`color_space` (string, default: "linear_rgb")
+> Specify the color space to use when publishing and saving point clouds and images. Valid values:
+>
+>  - `srgb`: Use the sRGB color space. The sRGB color space is suitable for showing an image
+>    on a display for human viewing. It is easier to see details in darker areas of an image in sRGB
+>    than in linear RGB, as more of the dynamic range is dedicated to darker colors. This format is
+>    assumed by default by most monitors and should be used when displaying an image. This option
+>    should be used to match colors to the visualization in Zivid Studio.
+>  - `linear_rgb`: Use linear RGB color space. Linear RGB is suitable as input to computer
+>    vision algorithms.
+>
+> In particular, this parameter affects the data published over the [color/image_color](#colorimage_color) and
+> [points/xyzrgba](#pointsxyzrgba) topics. Please see the Zivid knowledge base on
+> [2D Color Spaces and Output Formats](https://support.zivid.com/en/latest/reference-articles/color-spaces-and-output-formats.html)
+> for more details.
+
+`intrinsics_source` (string, default: "camera")
+> Specify how intrinsics are determined when publishing images from 3D captures. Valid values:
+>
+>  - `camera`: Use hard-coded camera intrinsics. These intrinsics are given for a single aperture and a
+>    single temperature, and will therefore not be as accurate as the intrinsics estimated from the frame.
+>  - `frame`: Estimate the intrinsics from the captured 3D frame. This gives more accurate results at the
+>    cost of additional computation time.
+>
+> In particular, this parameter affects data published on the topics [color/camera_info](#colorcamera_info),
+> [depth/camera_info](#depthcamera_info), and [snr/camera_info](#snrcamera_info), after performing a 3D capture. The
+> 2D-only captures will always use the hard-coded camera intrinsics. Please see the Zivid knowledge base on
+> [Camera Intrinsics](https://support.zivid.com/en/latest/reference-articles/camera-intrinsics.html) for more details.
+>
+> See [Sample Intrinsics](#sample-intrinsics) for code example.
 
 ## Configuration
 
@@ -202,9 +258,10 @@ The service `capture_assistant/suggest_settings` will modify the settings parame
 
 Invoke this service to trigger a 3D capture. See section [Configuration](#configuration) for how to
 configure the 3D capture settings. The resulting point cloud is published on topics [points/xyz](#pointsxyz) and
-[points/xyzrgba](#pointsxyzrgba), color image is published on topic [color/image_color](#colorimage_color),
-and depth image is published on topic [depth/image](#depthimage). Camera calibration is published on
-topics [color/camera_info](#colorcamera_info) and [depth/camera_info](#depthcamera_info).
+[points/xyzrgba](#pointsxyzrgba), color image is published on topic [color/image_color](#colorimage_color), depth image
+is published on topic [depth/image](#depthimage), and signal-to-noise ratio (SNR) image is published on topic
+[snr/image](#snrimage). Camera calibration is published on topics [color/camera_info](#colorcamera_info),
+[depth/camera_info](#depthcamera_info), and [snr/camera_info](#snrcamera_info).
 
 See [Sample Capture](#sample-capture) for code example.
 
@@ -218,11 +275,46 @@ capture, see [capture](#capture).
 
 See [Sample Capture 2D](#sample-capture-2d) for code example.
 
+### capture_and_detect_calibration_board
+[zivid_interfaces/srv/CaptureAndDetectCalibrationBoard.srv](./zivid_interfaces/srv/CaptureAndDetectCalibrationBoard.srv)
+
+Performs a capture to detect a calibration board and estimate its pose. This service call will perform a relatively slow
+but high-quality point cloud capture with the connected camera. Any settings applied to the camera in the ROS driver
+will be ignored for calls to this service, appropriate settings are automatically used. The resulting point cloud and
+color image will be published just like during a normal call to the [capture](#capture) service.
+
+The returned data from the service includes a member of the type
+[DetectionResultCalibrationBoard.msg](./zivid_interfaces/msg/DetectionResultCalibrationBoard.msg), with details on any
+detected calibration board.
+
+The functionality is to be exclusively used in combination with Zivid verified calibration boards. For further
+information please visit [Zivid help page](https://support.zivid.com).
+
+### capture_and_detect_markers
+[zivid_interfaces/srv/CaptureAndDetectMarkers.srv](./zivid_interfaces/srv/CaptureAndDetectMarkers.srv)
+
+Performs a capture to detect fiducial markers, such as ArUco markers, and estimate their poses. As opposed to the
+[capture_and_detect_calibration_board](#capture_and_detect_calibration_board) service, this service uses the current
+settings applied to the camera. See section [Configuration](#configuration) for how to configure the 3D capture
+settings. The resulting point cloud and color image will be published just like during a normal call to the
+[capture](#capture) service.
+
+The name of the fiducial dictionary must be provided, along with a list of marker IDs. The scene may not need not
+contain all listed markers for a successful detection. For further information on fiducial markers see [this wikipedia
+page](https://en.wikipedia.org/wiki/Fiducial_marker). For more information on ArUco markers specifically, refer to the
+[OpenCV documentation](https://docs.opencv.org/4.x/d5/dae/tutorial_aruco_detection.html).
+
+The returned data from the service includes a member of the type
+[DetectionResultFiducialMarkers.msg](./zivid_interfaces/msg/DetectionResultFiducialMarkers.msg), with details on any
+detected fiducial markers.
+
 ### capture_and_save
 [zivid_interfaces/srv/CaptureAndSave.srv](./zivid_interfaces/srv/CaptureAndSave.srv)
 
 It does exactly the same as the [capture](#capture) service, in addition it will save the frame to
 a file. This service takes a path as an argument. The chosen format is detected via the file extension.
+The `color_space` parameter controls which color space is used when saving the frame.
+
 See [knowledge base](https://support.zivid.com/en/latest/reference-articles/point-cloud-structure-and-output-formats.html#zivid-output-formats)
 for a list of available output formats.
 
@@ -271,6 +363,178 @@ service call. If the camera is not in `Connected` state the driver will attempt 
 the camera when it detects that the camera is available. This can happen if the camera is
 power-cycled or the USB/Ethernet cable is unplugged and then replugged.
 
+### hand_eye_calibration/start
+[zivid_interfaces/srv/HandEyeCalibrationStart.srv](./zivid_interfaces/srv/HandEyeCalibrationStart.srv)
+
+Prepares the node for hand-eye calibration and clears any previously collected hand-eye captures. The type of the
+[calibration object](https://support.zivid.com/en/latest/academy/applications/hand-eye/calibration-object.html) to be
+used during capture must be provided. A *working directory* can optionally be provided so that all captures are saved to
+this directory. If provided, the directory must be given as an absolute path and the directory must be empty.
+
+This service must be called first before capturing data for hand-eye calibration. It can also be used to restart an
+active hand-eye calibration session. After calling this service, proceed with captures by calling the
+[hand_eye_calibration/capture](#hand_eye_calibrationcapture) service.
+
+Please refer to the Zivid knowledge base for more information on [hand-eye
+calibration](https://support.zivid.com/en/latest/academy/applications/hand-eye.html).
+
+### hand_eye_calibration/capture
+[zivid_interfaces/srv/HandEyeCalibrationCapture.srv](./zivid_interfaces/srv/HandEyeCalibrationCapture.srv)
+
+Performs a hand-eye calibration capture. This service takes the robot pose as an input. Then it performs a capture, and
+detects any calibration objects. The resulting point cloud and color image will be published just like during a normal call to the
+[capture](#capture) service.
+
+If the detections is successful, the result is stored locally in the driver. Additionally, if a working directory was
+specified during start, the captured frame and robot pose is saved to that directory.
+
+This service uses the currently stored 3D capture settings to perform the capture. Ensure that the camera is [properly
+configured](#configuration) first. Please see the knowledge base for [how to get good quality data](https://support.zivid.com/en/latest/academy/applications/hand-eye/how-to-get-good-quality-data-on-zivid-calibration-board.html).
+
+The camera and robot should be appropriately positioned so that the calibration object is visible in the frame. Multiple
+captures in different poses are necessary. After performing several captures, one can proceed by calling the
+[hand_eye_calibration/calibrate](#hand_eye_calibrationcalibrate) service.
+
+### hand_eye_calibration/calibrate
+[zivid_interfaces/srv/HandEyeCalibrationCalibrate.srv](./zivid_interfaces/srv/HandEyeCalibrationCalibrate.srv)
+
+Computes the hand-eye calibration transform based on the captures gathered during the current hand-eye calibration
+session. Both eye-to-hand and eye-in-hand configurations are supported. If successful, the computed hand-eye transform
+is returned, see the knowledge base for more information on the [hand-eye calibration
+solution](https://support.zivid.com/en/latest/academy/applications/hand-eye/hand-eye-calibration-solution.html).
+
+The calibration procedure requires all robot poses to be different. At least 2 poses are required when using a
+calibration board, or 6 poses when using fiducial markers. For fiducial markers, each marker must be detected across 2
+poses at minimum.
+
+Low degrees-of-freedom (DOF) calibration is also supported (experimental) by supplying the fixed placement of
+calibration objects. This is not needed for regular (6-DOF) calibration.
+
+### hand_eye_calibration/load
+[zivid_interfaces/srv/HandEyeCalibrationLoad.srv](./zivid_interfaces/srv/HandEyeCalibrationLoad.srv)
+
+Loads a working directory from a previous hand-eye calibration session. See the
+[hand_eye_calibration/start](#hand_eye_calibrationstart) service for how to start a session with a working directory.
+The captures and robot poses are loaded from the provided directory. The directory is opened as read-only, and no new
+captures can be made during this session. However, calls to the
+[hand_eye_calibration/calibrate](#hand_eye_calibrationcalibrate) service can be made to compute the hand-eye transform
+from the loaded data.
+
+### infield_correction/read
+[zivid_interfaces/srv/InfieldCorrectionRead.srv](./zivid_interfaces/srv/InfieldCorrectionRead.srv)
+
+Returns the state of the [infield
+correction](https://support.zivid.com/en/latest/academy/camera/infield-correction.html) of the camera.
+
+### infield_correction/reset
+[std_srvs/srv/Trigger](https://docs.ros2.org/latest/api/std_srvs/srv/Trigger.html)
+
+Resets the infield correction on the camera to factory settings.
+
+### infield_correction/start
+[std_srvs/srv/Trigger](https://docs.ros2.org/latest/api/std_srvs/srv/Trigger.html)
+
+Prepares for infield correction, and clears any infield correction captures gathered so far in the `zivid_camera` node.
+
+This service must be called before gathering captures using the [infield_correction/capture](#infield_correctioncapture)
+service. However, other infield correction services can be used without calling the start service first. This service
+can also be used to restart an active infield correction session.
+
+Please refer to the Zivid knowledge base for further information and guidelines for [infield
+correction](https://support.zivid.com/en/latest/academy/camera/infield-correction.html). 
+
+### infield_correction/capture
+[zivid_interfaces/srv/InfieldCorrectionCapture.srv](./zivid_interfaces/srv/InfieldCorrectionCapture.srv)
+
+Takes a capture to be used for infield correction. Please point the camera at a Zivid infield calibration object. It is
+recommended to cover several distances, with one or more captures at each distance. Successful captures are stored in
+the `zivid_camera` node.
+
+Before calling this service, a call to [infield_correction/start](#infield_correctionstart) must have been made first.
+
+This service call will perform a relatively slow but high-quality point cloud capture with the connected camera. Any
+settings applied to the camera in the ROS driver will be ignored for calls to this service, appropriate settings are
+automatically used. The resulting point cloud and color image will be published just like during a normal call to the
+[capture](#capture) service.
+
+After sufficient number of captures, proceed by calling the [infield_correction/compute](#infield_correctioncompute)
+service to compute the verification metrics and the correction based on the captures gathered so far. To additionally
+write the correction to camera, proceed by calling the
+[infield_correction/compute_and_write](#infield_correctioncompute_and_write) service.
+
+The captured data is cleared if the node is stopped, or after a successful call to either of the services
+[infield_correction/start](#infield_correctionstart) or
+[infield_correction/compute_and_write](#infield_correctioncompute_and_write).
+
+### infield_correction/compute
+[zivid_interfaces/srv/InfieldCorrectionCompute.srv](./zivid_interfaces/srv/InfieldCorrectionCompute.srv)
+
+Calculates the new infield correction based the captured data gathered so far through the service
+[infield_correction/capture](#infield_correctioncapture).
+
+The quantity and range of data is up to the user, but generally a larger dataset will yield a more accurate and reliable
+correction. If all measurements are taken at approximately the same distance, the resulting correction will mainly be
+valid at those distances. If several measurements are taken at significantly different distances, the resulting
+correction will likely be more suitable for extrapolation to distances beyond where the dataset is collected.
+
+This service also acts as verification of the quality of the infield correction on a camera, or the need for one if none
+exists already. It returns an indication of the dimension trueness at the location where the input data was captured.
+
+If the returned assessment indicates a trueness error that is above the threshold for your application, consider using
+[infield_correction/compute_and_write](#infield_correctioncompute_and_write). The service also returns information
+regarding the proposed working range and the accuracy that can be expected within the working range, if the correction
+is later written to the camera.
+
+### infield_correction/compute_and_write
+[zivid_interfaces/srv/InfieldCorrectionCompute.srv](./zivid_interfaces/srv/InfieldCorrectionCompute.srv)
+
+Calculates the new infield correction based the captured data gathered so far through the service
+[infield_correction/capture](#infield_correctioncapture), and writes the result to the camera.
+
+If the write operation is successful, the infield correction capture data is cleared. To perform infield correction
+again, a new session must be started with a call to the [infield_correction/start](#infield_correctionstart) service.
+
+Please see the [infield_correction/compute](#infield_correctioncompute) service for more information on the computed
+correction.
+
+### infield_correction/remove_last_capture
+[std_srvs/srv/Trigger](https://docs.ros2.org/latest/api/std_srvs/srv/Trigger.html)
+
+Removes the last infield correction capture gathered in the `zivid_camera` node.
+
+### projection/resolution
+[zivid_interfaces/srv/ProjectionResolution.srv](./zivid_interfaces/srv/ProjectionResolution.srv)
+
+Returns the width and height of the projector.
+
+### projection/status
+[zivid_interfaces/srv/ProjectionStatus.srv](./zivid_interfaces/srv/ProjectionStatus.srv)
+
+Returns whether the projector is turned on or not.
+
+### projection/start
+[zivid_interfaces/srv/ProjectionStart.srv](./zivid_interfaces/srv/ProjectionStart.srv)
+
+Start the projector. This service takes _either_ a path _or_ raw pixel values in BGRA format to specify what to project.
+The specified file or data must match the resolution of the projector, which can be obtained using the
+[resolution service](#projectionresolution).
+
+If a capture is performed using any other service than [projection/capture_2d](#projectioncapture_2d), the projector
+will be turned off.
+
+### projection/stop
+[std_srvs/srv/Trigger](https://docs.ros2.org/latest/api/std_srvs/srv/Trigger.html)
+
+Stops the current projection, if any.
+
+### projection/capture_2d
+[std_srvs/srv/Trigger](https://docs.ros2.org/latest/api/std_srvs/srv/Trigger.html)
+
+Invoke this service to trigger a 2D capture while the projector is turned on. Like [capture_2d](#capture_2d) this
+service requires capture settings to be [configured](#configuration). This function can only be used with a
+zero-brightness 2D capture, otherwise it will interfere with the projected image. The service will fail with an error if
+settings contains brightness > 0.
+
 ## Topics
 
 The Zivid ROS driver provides several topics providing 3D, color, SNR and camera calibration
@@ -281,7 +545,7 @@ or sent on topics with zero active subscribers.
 ### color/camera_info
 [sensor_msgs/msg/CameraInfo](https://docs.ros2.org/latest/api/sensor_msgs/msg/CameraInfo.html)
 
-Camera calibration and metadata.
+Camera calibration and metadata. See also parameter [`intrinsics_source`](#launch-parameters-advanced).
 
 ### color/image_color
 [sensor_msgs/msg/Image](https://docs.ros2.org/latest/api/sensor_msgs/msg/Image.html)
@@ -293,7 +557,7 @@ is always 255.
 ### depth/camera_info
 [sensor_msgs/msg/CameraInfo](https://docs.ros2.org/latest/api/sensor_msgs/msg/CameraInfo.html)
 
-Camera calibration and metadata.
+Camera calibration and metadata. See also parameter [`intrinsics_source`](#launch-parameters-advanced).
 
 ### depth/image
 [sensor_msgs/msg/Image](https://docs.ros2.org/latest/api/sensor_msgs/msg/Image.html)
@@ -318,7 +582,7 @@ the RGBA values.
 ### snr/camera_info
 [sensor_msgs/msg/CameraInfo](https://docs.ros2.org/latest/api/sensor_msgs/msg/CameraInfo.html)
 
-Camera calibration and metadata.
+Camera calibration and metadata. See also parameter [`intrinsics_source`](#launch-parameters-advanced).
 
 ### snr/image
 [sensor_msgs/msg/Image](https://docs.ros2.org/latest/api/sensor_msgs/msg/Image.html)
@@ -387,6 +651,40 @@ ros2 run zivid_samples sample_capture_2d_cpp
 ros2 run zivid_samples sample_capture_2d.py
 ```
 
+### Sample Capture and Detect Calibration Board
+
+This sample performs a capture and detects any calibration board in the current scene. It shows how to invoke the
+[capture_and_detect_calibration_board](#capture_and_detect_calibration_board) service and log the detection results.
+
+Source code: [C++](./zivid_samples/src/sample_capture_and_detect_calibration_board.cpp)
+
+```bash
+ros2 launch zivid_samples sample.launch sample:=sample_capture_and_detect_calibration_board_cpp
+```
+
+Using ros2 run (when `zivid_camera` node is already running):
+
+```bash
+ros2 run zivid_samples sample_capture_and_detect_calibration_board_cpp
+```
+
+### Sample Capture and Detect Markers
+
+This sample performs a capture and detects any fiducial markers in the current scene. It shows how to invoke the
+[capture_and_detect_markers](#capture_and_detect_markers) service and log the detection result.
+
+Source code: [C++](./zivid_samples/src/sample_capture_and_detect_markers.cpp)
+
+```bash
+ros2 launch zivid_samples sample.launch sample:=sample_capture_and_detect_markers_cpp
+```
+
+Using ros2 run (when `zivid_camera` node is already running):
+
+```bash
+ros2 run zivid_samples sample_capture_and_detect_markers_cpp
+```
+
 ### Sample Capture and Save
 
 This sample performs a capture, and stores the resulting frame to file. This sample shows how to
@@ -445,6 +743,275 @@ ros2 run zivid_samples sample_capture_with_settings_from_file_cpp
 ros2 run zivid_samples sample_capture_with_settings_from_file.py
 ```
 
+### Sample Infield Correction
+
+This sample shows how to invoke the various [infield_correction/[...]](#infield_correctionread) services to perform infield correction on Zivid cameras.
+
+Source code: [C++](./zivid_samples/src/sample_infield_correction.cpp) [Python](./zivid_samples/scripts/sample_infield_correction.py)
+
+```bash
+ros2 launch zivid_samples sample.launch sample:=sample_infield_correction_cpp operation:=<operation>
+ros2 launch zivid_samples sample.launch sample:=sample_infield_correction.py operation:=<operation>
+```
+Using ros2 run (when `zivid_camera` node is already running):
+```bash
+ros2 run zivid_samples sample_infield_correction_cpp --ros-args -p operation:=<operation>
+ros2 run zivid_samples sample_infield_correction.py --ros-args -p operation:=<operation>
+```
+
+With the following argument:
+
+`operation` (string, required)
+> Specify the infield correction operation to perform, one of: 
+>   - `verify`: Verify camera correction quality based on a single capture using the [`infield_correction/start`](#infield_correctionstart), [`infield_correction/capture`](#infield_correctioncapture), and [`infield_correction/compute`](#infield_correctioncompute) services.
+>   - `correct`: Calculate in-field correction based on a series of captures at different distances. Demonstrates the use of [`infield_correction/start`](#infield_correctionstart), [`infield_correction/capture`](#infield_correctioncapture), and [`infield_correction/compute`](#infield_correctioncompute) services. Begins by preparing the camera node for infield correction captures, then the sample gathers a fixed number of captures at a fixed duration between captures. The correction result is computed after every capture.
+>   - `correct_and_write`: Same as `correct`, but additionally writes the correction results to the camera. Demonstrates the [`infield_correction/compute_and_write`](#infield_correctioncompute_and_write) service.
+>   - `read`: Get information about the correction currently on the connected camera using the [`infield_correction/read`](#infield_correctionread) service.
+>   - `reset`: Reset correction on connected camera to factory settings using the [`infield_correction/reset`](#infield_correctionreset) service.
+
+Please see the [infield correction documentation](https://support.zivid.com/en/latest/academy/camera/infield-correction.html) for prerequisites and guidelines on how to perform the correction.
+
+For a more interactive experience, we recommend using the [infield correction panel](#infield-correction-panel) from the Zivid RViz plugin.
+
+The typical procedure for performing a new infield correction is:
+
+1. `start`: Prepare for infield correction, clears any existing infield correction captures.
+2. `capture`: Take multiple captures from different angles and distances in accordance with the typical operating conditions of the camera.
+3. `compute`: Check the computed correction results and the estimated errors, verify that they give satisfactory results.
+4. `compute_and_write`: Compute the correction and write the results to camera.
+
+The `zivid_camera` node persists the infield correction dataset as long as it is running. To start the infield correction captures over again, use the `start` operation which clears all infield correction captures previously gathered. The `remove_last_capture` can be used to remove just the last capture.
+
+### Sample Hand-Eye Calibration
+
+This sample shows how to invoke various [hand_eye_calibration/[...]](#hand_eye_calibrationstart) services to perform
+hand-eye calibration on Zivid cameras. The sample is for exposition only, to demonstrate how the services can be called.
+
+The sample begins by preparing the camera node for hand-eye calibration. Then a fixed number of captures is gathered at
+a fixed duration between captures, using a simulated robot pose. Finally, hand-eye calibration is run using the gathered
+data.
+
+Source code: [C++](./zivid_samples/src/sample_hand_eye_calibration.cpp) [Python](./zivid_samples/scripts/sample_hand_eye_calibration.py)
+
+```bash
+ros2 launch zivid_samples sample.launch sample:=sample_hand_eye_calibration_cpp configuration:=<configuration> marker_ids:=<marker_ids> working_directory:=<working_directory>
+ros2 launch zivid_samples sample.launch sample:=sample_hand_eye_calibration.py configuration:=<configuration> marker_ids:=<marker_ids> working_directory:=<working_directory>
+```
+
+Using ros2 run (when `zivid_camera` node is already running):
+```bash
+ros2 run zivid_samples sample_hand_eye_calibration_cpp --ros-args -p configuration:=<configuration> -p marker_ids:=<marker_ids> -p working_directory:=<working_directory>
+ros2 run zivid_samples sample_hand_eye_calibration.py --ros-args -p configuration:=<configuration> -p marker_ids:=<marker_ids> -p working_directory:=<working_directory>
+```
+
+With the following arguments:
+
+`configuration` (string, required)
+> Specify the configuration for the hand-eye calibration, one of:
+>   - `eye_to_hand`: Performs calibration in the [eye-to-hand configuration](https://support.zivid.com/en/latest/academy/applications/hand-eye/hand-eye-calibration-problem.html#eye-to-hand).
+>   - `eye_in_hand`: Performs calibration in the [eye-in-hand configuration](https://support.zivid.com/en/latest/academy/applications/hand-eye/hand-eye-calibration-problem.html#eye-in-hand).
+
+`marker_ids` (dynamic array of integers, default: *empty*):
+> Specifies a list of [fiducial marker IDs](https://support.zivid.com/en/latest/academy/applications/hand-eye/calibration-object.html) used for detection (e.g. `[1,2,3]`),
+> or empty if a [Zivid calibration board](https://support.zivid.com/en/latest/academy/applications/hand-eye/calibration-object.html) is used instead.
+
+`working_directory` (string, default: *empty*)
+> argument specifies the [working directory](#hand_eye_calibrationstart) used to store the
+> gathered data, or empty to indicate that the data should not be stored on disk.
+> A non-empty value must specify an absolute path to an empty directory.
+
+For more information on performing the calibration, please see the [Zivid hand-eye calibration documentation](https://support.zivid.com/en/latest/academy/applications/hand-eye.html).
+
+### Sample Intrinsics
+
+This sample performs 3D captures and prints the published camera intrinsics with different settings. This sample shows
+how to set the [`intrinsics_source`](#launch-parameters-advanced) parameter, and how to subscribe to the
+[color/camera_info](#colorcamera_info) topic. Please see the Zivid knowledge base on
+[Camera Intrinsics](https://support.zivid.com/en/latest/reference-articles/camera-intrinsics.html) for more details.
+
+Source code: [C++](./zivid_samples/src/sample_intrinsics.cpp)
+
+```bash
+ros2 launch zivid_samples sample.launch sample:=sample_intrinsics_cpp
+```
+Using ros2 run (when `zivid_camera` node is already running):
+```bash
+ros2 run zivid_samples sample_capture_cpp
+```
+
+### Sample with SDK: Capture and Load Frame
+
+The sample serves to demonstrate how to use the Zivid SDK on the sample-side directly, as a supplement to the services
+provided by the Zivid camera driver. Captures are still performed using the `zivid_camera` node and its ROS services.
+
+First, the sample performs a `capture_and_save` service call to the `zivid_camera` node to save a file to ZDF, just like
+in the [Capture and Save sample](#sample-capture-and-save). Then, it loads the ZDF, using the Zivid SDK directly, and
+prints information about it.
+
+This sample expects the `zivid_camera` to run in a separate node, in a different process. When using the Zivid API, each
+process needs to have its own copy of `Zivid::Application`. For this reason, the sample constructs its own copy of
+`Zivid::Application`.
+
+```bash
+ros2 launch zivid_samples sample.launch sample:=sample_with_sdk_capture_and_load_cpp
+```
+
+Or using ros2 run (when `zivid_camera` node is already running):
+
+```bash
+ros2 run zivid_samples sample_with_sdk_capture_and_load_cpp
+```
+
+### Sample Projection
+
+This sample shows how to use the various [projection/[...]](#ProjectionStart) services. It takes one optional argument
+which is a path to an image to be projected:
+
+```bash
+ros2 launch zivid_samples sample.launch sample:=sample_projection_cpp image_path:=<image>
+ros2 launch zivid_samples sample.launch sample:=sample_projection.py image_path:=<image>
+```
+
+Using ros2 run (when `zivid_camera` node is already running):
+```
+ros2 run zivid_samples sample_projection_cpp --ros-args -p image_path:=<image>
+ros2 run zivid_samples sample_projection.py --ros-args -p image_path:=<image>
+```
+If the argument is not given the sample will project a generated image with color gradients.
+
+Source code: [C++](./zivid_samples/src/sample_projection.cpp) [Python](./zivid_samples/scripts/sample_projection.py)
+
+### Sample Project and Capture
+
+This sample shows how to perform a capture while the projector is on. A simple marker is projected and a 2D capture is
+performed.
+
+```bash
+ros2 launch zivid_samples sample.launch sample:=sample_project_and_capture_cpp
+ros2 launch zivid_samples sample.launch sample:=sample_project_and_capture.py
+```
+
+Using ros2 run (when `zivid_camera` node is already running):
+```
+ros2 run zivid_samples sample_project_and_capture_cpp
+ros2 run zivid_samples sample_project_and_capture.py
+```
+
+Source code: [C++](./zivid_samples/src/sample_project_and_capture.cpp) [Python](./zivid_samples/scripts/sample_project_and_capture.py)
+
+## Launch Files
+
+Several sample launch files are provided for the Zivid camera driver and samples. Common to all of them is that they
+start a node for the Zivid camera driver and another one for the [robot description for the camera (URDF)](#urdf).
+
+### Common Arguments
+
+Common arguments to all launch files:
+- `serial_number` (string, default *empty*). Connect to a specific camera by its serial number, empty means connect to
+  the first available camera.
+- `model` (string, default `ZIVID_2_M70`). Choose from the list of [available camera models](#available-models) for the
+  [URDF](#urdf).
+- `field_of_view` (boolean, default `false`). Enable to include a mesh of the camera field of view in the [URDF](#urdf).
+
+### Launch Sample
+
+[`sample.launch`](./zivid_samples/launch/sample.launch)
+: Launches a camera node with its description and a sample.
+
+Arguments:
+- `sample`: (string, required). Specify the name of the [sample](#samples).
+
+See also the [common arguments](#common-arguments) above. There are also additional arguments for specific samples, see
+any arguments listed in the description of a given sample.
+
+### Launch Sample with RViz
+
+[`sample_with_rviz.launch`](./zivid_samples/launch/sample_with_rviz.launch)
+: Launches a camera node with its description and a sample, and opens RViz with the Zivid configuration.
+
+Arguments:
+- `sample`: (string, required). Specify the name of the [sample](#samples).
+
+See also the [common arguments](#common-arguments) above. There are also additional arguments for specific samples, see
+any arguments listed in the description of a given sample.
+
+### Launch Zivid Camera
+
+[`zivid_camera.launch`](./zivid_samples/launch/zivid_camera.launch)
+: Launches a camera node with its description.
+
+See the [common arguments](#common-arguments) above.
+
+### Launch Zivid Camera with RViz
+
+[`zivid_camera_with_rviz.launch`](./zivid_samples/launch/zivid_camera_with_rviz.launch)
+: Launches a camera node with its description, and opens RViz with the Zivid configuration.
+
+See the [common arguments](#common-arguments) above.
+
+## RViz Plugin
+
+### Infield Correction Panel
+
+The Zivid RViz plugin provides a panel to interactively perform infield correction with a Zivid camera.
+
+To see the panel in RViz, go to `Panels -> Add New Panel`, then select `Zivid Infield Correction` and click `OK`.
+Infield correction can now be performed by interacting with the newly added panel.
+
+The panel is also visible when [launching](#launch-zivid-camera-with-rviz) the Zivid camera node with RViz, e.g.:
+```
+ros2 launch zivid_samples zivid_camera_with_rviz.launch
+```
+
+Please see the [infield correction documentation](https://support.zivid.com/en/latest/academy/camera/infield-correction.html)
+for prerequisites and guidelines on how to perform the correction.
+
+## URDF
+
+The Zivid description package provides a [Unified Robotics Description Format
+(URDF)](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/URDF/URDF-Main.html) for Zivid cameras. Visual and
+collision models are provided for the Zivid cameras, and a visual model of their field-of-view (FOV) can optionally be
+included. The description specifies the coordinate frame of the point cloud (`zivid_optical_frame` by default) in
+relation to the base of the camera (`zivid_base_link` by default).
+
+The position and orientation of the optical frame are different between camera models, as well as their FOV. To model
+these differences, the description is specified in a [Xacro
+macro](https://docs.ros.org/en/jazzy/Tutorials/Intermediate/URDF/Using-Xacro-to-Clean-Up-a-URDF-File.html) which is used
+to generate the URDF. Ensure that the appropriate [camera model](#available-models) is provided. This is particularly
+important when visualizing the FOV, as that has large variations between models.
+
+The provided relation between the Zivid optical frame and base link is based on uncalibrated values, expect certain
+real-world differences. [Hand-eye calibration](#sample-hand-eye-calibration) should be performed for accurate placement
+of the point cloud in a target coordinate frame.
+
+### Usage
+
+The URDF or the underlying macro can be included in your own project.
+
+To view the Zivid 2, Zivid 2+, or Zivid 2+R cameras in RViz:
+```
+ros2 launch zivid_samples zivid_camera_with_rviz.launch model:=ZIVID_2_M70 field_of_view:=true
+```
+Please see the [available models](#available-models) below.
+
+To view the camera in RViz and start a sample:
+```
+ros2 launch zivid_samples sample_with_rviz.launch model:=ZIVID_2_M70 field_of_view:=true sample:=sample_capture_cpp
+```
+
+### Available Models
+
+The available Zivid camera models are:
+
+- `ZIVID_2_M70` (default)
+- `ZIVID_2_L100`
+- `ZIVID_2_PLUS_L110`
+- `ZIVID_2_PLUS_M60`
+- `ZIVID_2_PLUS_M130`
+- `ZIVID_2_PLUS_LR110`
+- `ZIVID_2_PLUS_MR130`
+- `ZIVID_2_PLUS_MR60`
+
 ## Frequently Asked Questions
 
 ### How to visualize the output from the camera in rviz
@@ -466,11 +1033,23 @@ See section [Configuration](#configuration) for more details.
 ros2 run zivid_camera zivid_camera --ros-args -p settings_file_path:=/path/to/settings.yml -p settings_2d_file_path:=/path/to/settings2D.yml
 ```
 
+### How to start the driver using the sRGB color space set
+
+```bash
+ros2 run zivid_camera zivid_camera --ros-args -p color_space:=srgb
+```
 ### How to trigger 3D/2D capture via terminal
 
 ```bash
 ros2 service call /capture std_srvs/srv/Trigger
 ros2 service call /capture_2d std_srvs/srv/Trigger
+```
+
+### How to change the color space via terminal
+
+```bash
+ros2 param set zivid_camera color_space srgb
+ros2 param set zivid_camera color_space linear_rgb
 ```
 
 ### How to use a file camera
@@ -503,13 +1082,15 @@ may try to connect to the same camera at the same time.
 ### How to run the unit and module tests
 
 This project comes with a set of unit and module tests to verify the provided functionality. To run
-the tests locally, first download and install the file camera used for testing:
+the tests locally, first download and install the required data used for testing:
 ```bash
-wget -q https://www.zivid.com/software/FileCameraZivid2M70.zip
-unzip ./FileCameraZivid2M70.zip
-rm ./FileCameraZivid2M70.zip
-sudo mkdir -p /usr/share/Zivid/data/
-sudo mv ./FileCameraZivid2M70.zfc /usr/share/Zivid/data/
+for sample in "FileCameraZivid2M70.zip" "BinWithCalibrationBoard.zip"; do
+    echo "Downloading ${sample}"
+    wget -q "https://www.zivid.com/software/${sample}" || exit $?
+    mkdir -p /usr/share/Zivid/data/ || exit $?
+    unzip "./${sample}" -d /usr/share/Zivid/data/ || exit $?
+    rm "./${sample}" || exit $?
+done
 ```
 
 Then run the tests:

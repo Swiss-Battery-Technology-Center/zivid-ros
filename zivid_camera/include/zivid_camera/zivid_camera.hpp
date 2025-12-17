@@ -48,7 +48,10 @@ class Application;
 class Camera;
 class CameraIntrinsics;
 struct ColorRGBA;
+struct ColorSRGB;
+using ColorRGBA_SRGB = ColorSRGB;
 class Frame;
+class Frame2D;
 template <typename T>
 class Image;
 class PointCloud;
@@ -64,13 +67,31 @@ enum class CameraStatus
   Connected,
   Disconnected
 };
+enum class ColorSpace
+{
+  sRGB,
+  LinearRGB,
+};
+enum class IntrinsicsSource
+{
+  Camera,
+  Frame,
+};
 template <typename SettingsType>
 class CaptureSettingsController;
+class DetectorController;
+class HandEyeCalibrationController;
+class InfieldCorrectionController;
+class ProjectionController;
+class ControllerInterface;
 
 class ZividCamera : public rclcpp::Node
 {
 public:
-  ZIVID_CAMERA_ROS_PUBLIC ZividCamera(const rclcpp::NodeOptions & options);
+  ZIVID_CAMERA_ROS_PUBLIC explicit ZividCamera(const rclcpp::NodeOptions & options);
+  ZIVID_CAMERA_ROS_PUBLIC ZividCamera(
+    const std::string & node_name, const std::string & ns, const rclcpp::NodeOptions & options,
+    std::shared_ptr<Zivid::Application> application);
   ~ZividCamera() override;
   ZIVID_CAMERA_ROS_PUBLIC Zivid::Application & zividApplication();
 
@@ -110,6 +131,7 @@ private:
     const std::shared_ptr<zivid_interfaces::srv::IsConnected::Request> request,
     std::shared_ptr<zivid_interfaces::srv::IsConnected::Response> response);
   void publishFrame(const Zivid::Frame & frame);
+  void publishFrame2D(const Zivid::Frame2D & frame2D);
   Zivid::Frame invokeCaptureAndPublishFrame(const Zivid::Settings & settings);
   bool shouldPublishPointsXYZ() const;
   bool shouldPublishPointsXYZRGBA() const;
@@ -121,15 +143,20 @@ private:
   void publishPointCloudXYZ(
     const std_msgs::msg::Header & header, const Zivid::PointCloud & point_cloud);
   void publishPointCloudXYZRGBA(
-    const std_msgs::msg::Header & header, const Zivid::PointCloud & point_cloud);
+    const std_msgs::msg::Header & header, const Zivid::PointCloud & point_cloud,
+    ColorSpace color_space);
   void publishColorImage(
     const std_msgs::msg::Header & header,
     const sensor_msgs::msg::CameraInfo::ConstSharedPtr & camera_info,
-    const Zivid::PointCloud & point_cloud);
+    const Zivid::PointCloud & point_cloud, ColorSpace color_space);
   void publishColorImage(
     const std_msgs::msg::Header & header,
     const sensor_msgs::msg::CameraInfo::ConstSharedPtr & camera_info,
     const Zivid::Image<Zivid::ColorRGBA> & image);
+  void publishColorImage(
+    const std_msgs::msg::Header & header,
+    const sensor_msgs::msg::CameraInfo::ConstSharedPtr & camera_info,
+    const Zivid::Image<Zivid::ColorRGBA_SRGB> & image);
   void publishDepthImage(
     const std_msgs::msg::Header & header,
     const sensor_msgs::msg::CameraInfo::ConstSharedPtr & camera_info,
@@ -144,7 +171,15 @@ private:
     const std_msgs::msg::Header & header, std::size_t width, std::size_t height,
     const Zivid::CameraIntrinsics & intrinsics);
   [[noreturn]] void logErrorAndThrowRuntimeException(const std::string & message);
+  ColorSpace colorSpace() const;
+  IntrinsicsSource intrinsicsSource() const;
+  static void exportFrame(
+    const Zivid::Frame & frame, const std::string & file_name, ColorSpace color_space);
 
+  friend class ControllerInterface;
+
+  std::map<std::string, ColorSpace> color_space_name_value_map_;
+  std::map<std::string, IntrinsicsSource> intrinsics_source_name_value_map_;
   rclcpp::TimerBase::SharedPtr camera_connection_keepalive_timer_;
   bool use_latched_publisher_for_points_xyz_{false};
   bool use_latched_publisher_for_points_xyzrgba_{false};
@@ -169,7 +204,12 @@ private:
     capture_assistant_suggest_settings_service_;
   rclcpp::Service<zivid_interfaces::srv::IsConnected>::SharedPtr is_connected_service_;
 
-  std::unique_ptr<Zivid::Application> zivid_;
+  std::unique_ptr<DetectorController> detector_controller_;
+  std::unique_ptr<InfieldCorrectionController> infield_correction_controller_;
+  std::unique_ptr<HandEyeCalibrationController> hand_eye_calibration_controller_;
+  std::unique_ptr<ProjectionController> projection_controller_;
+
+  std::shared_ptr<Zivid::Application> zivid_;
   CameraStatus camera_status_{CameraStatus::Idle};
   std::unique_ptr<CaptureSettingsController<Zivid::Settings>> settings_controller_;
   std::unique_ptr<CaptureSettingsController<Zivid::Settings2D>> settings_2d_controller_;
